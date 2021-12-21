@@ -14,6 +14,7 @@
 #================================================================
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import layers
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense, Flatten, Conv1D, MaxPooling1D, LSTM, BatchNormalization, Dropout
 from tensorflow.keras import backend as K
@@ -28,7 +29,7 @@ if len(gpus) > 0:
     except RuntimeError: pass
 
 class Shared_Model:
-    def __init__(self, input_shape, action_space, learning_rate, optimizer, model="Dense"):
+    def __init__(self, input_shape, action_space, learning_rate, optimizer, State_Function ,model="Dense"):
         X_input = Input(input_shape)
         self.action_space = action_space
             
@@ -126,9 +127,11 @@ class Shared_Model:
         A = MaxPooling1D(pool_size=2)(A)
         #A = dropout_layer(A)
         A = Flatten()(A)
-
-        output = Dense(self.action_space, activation="softmax")(A) # A --> X
-
+        A = Dense(self.action_space, activation="linear")(A)
+        A = layers.Lambda(State_Function)(A)
+        output = layers.Softmax()(A)
+ 
+        
         self.Actor = Model(inputs = X_input, outputs = output) 
         self.Actor.compile(loss=self.ppo_loss, optimizer=optimizer(learning_rate=learning_rate))
         #print(self.Actor.summary())
@@ -233,3 +236,4 @@ class Critic_Model:
 
     def critic_predict(self, state):
         return self.Critic.predict([state, np.zeros((state.shape[0], 1))])
+

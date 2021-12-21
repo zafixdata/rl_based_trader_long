@@ -37,7 +37,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
 ## This part is used to start training
-def train_agent(env, agent, visualize=False, train_episodes=50, training_batch_size=500):
+def train_agent(env, agent:custom_agent, visualize=False, train_episodes=50, training_batch_size=500):
     agent.create_writer(env.initial_balance, env.normalize_value,
                         train_episodes)  # create TensorBoard writer
     ## save n recent (maxlen=n) episodes net worth
@@ -53,7 +53,7 @@ def train_agent(env, agent, visualize=False, train_episodes=50, training_batch_s
             next_state, reward, done = env.step(action)
             states.append(np.expand_dims(state, axis=0))
             next_states.append(np.expand_dims(next_state, axis=0))
-            action_onehot = np.zeros(3)
+            action_onehot = np.zeros(len(agent.action_space))
             action_onehot[action] = 1
             actions.append(action_onehot)
             rewards.append(reward)
@@ -71,6 +71,8 @@ def train_agent(env, agent, visualize=False, train_episodes=50, training_batch_s
         agent.writer.add_scalar('Data/episode_orders',
                                 env.episode_orders, episode)
 
+        agent.space = agent.next_space
+        
         print("episode: {:<5} net worth {:<7.2f} average: {:<7.2f} orders: {}".format(
             episode, env.net_worth, average, env.episode_orders))
         if episode > len(total_average):

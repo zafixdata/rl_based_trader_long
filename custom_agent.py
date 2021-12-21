@@ -6,22 +6,39 @@ import copy
 import os
 import numpy as np
 from icecream import ic
+import enum
+
+class Spaces(enum.Enum):
+    out_of_position = 0
+    in_position = 1
+    
+class Acts(enum.Enum):
+    remain_out_of_position = 0
+    enter_long = 1
+    exit_long = 2
+    remain_in_position = 3
+    
+
 
 class custom_agent:
     # A custom Bitcoin trading agent
-    def __init__(self, lookback_window_size=50, learning_rate=0.00005, epochs=1, optimizer=Adam, batch_size=32, model="",state_size=10):
+    def __init__(self, lookback_window_size=50, learning_rate=0.00005, epochs=1, optimizer=Adam, batch_size=32, model="", state_size=10):
         self.lookback_window_size = lookback_window_size
         self.model = model  # Currently, only one model is available (CNN)
 
-        # Action space from 0 to 3, 0 is hold, 1 is buy, 2 is sell
-        self.action_space = np.array([0, 1, 2])
+        # Action space from 0 to 3
+        self.action_space = np.array([Acts.remain_out_of_position,
+                                      Acts.enter_long,
+                                      Acts.exit_long,
+                                      Acts.remain_in_position]
+                                    )
 
         # folder to save models
         self.log_name = datetime.now().strftime("%Y_%m_%d_%H_%M")+"_Crypto_trader"
         ic(self.log_name)
 
-        ## State size contains Market+Orders history for the last lookback_window_size steps
-        ## 10 standard information +9 indicators
+        # State size contains Market+Orders history for the last lookback_window_size steps
+        # 10 standard information +9 indicators
         self.state_size = (lookback_window_size, state_size)
 
         # Neural Networks part bellow
@@ -30,12 +47,40 @@ class custom_agent:
         self.optimizer = optimizer
         self.batch_size = batch_size
 
-        ## Create shared Actor-Critic network model
+        self.space = Spaces.out_of_position
+        self.next_space = None
+
+        # Create shared Actor-Critic network model
         self.Actor = self.Critic = Shared_Model(
-            input_shape=self.state_size, action_space=self.action_space.shape[0], learning_rate = self.learning_rate, optimizer=self.optimizer, model=self.model)
-        
+            input_shape=self.state_size, action_space=self.action_space.shape[0], learning_rate=self.learning_rate, optimizer=self.optimizer, State_Function=self.mask_func, model=self.model)
+
+    def mask_func(self, action_space_numbers):
+        minus_inf = -10000
+        if self.space == Spaces.out_of_position:
+            action_space_numbers[2] = minus_inf
+            action_space_numbers[3] = minus_inf
+            return action_space_numbers 
+        elif self.space == Spaces.in_position:
+            action_space_numbers[0] = minus_inf
+            action_space_numbers[1] = minus_inf
+            return action_space_numbers 
+        else:
+            print('ERROR!')
+
+    # create tensorboard writer
     
-    ## create tensorboard writer
+    def calc_next_space(self, action):
+        if self.space == Spaces.out_of_position:
+            if action == Acts.enter_long:
+                self.next_space = Spaces.in_position
+            elif action == Acts.remain_out_of_position:
+                self.next_space = Spaces.out_of_position
+        elif self.space == Spaces.in_position:
+            if action == Acts.exit_long:
+                self.next_space = Spaces.out_of_position
+            elif action == Acts.remain_in_position:
+                self.next_space = Spaces.in_position
+
     def create_writer(self, initial_balance, normalize_value, train_episodes):
         self.replay_count = 0
         self.writer = SummaryWriter('runs/'+self.log_name)
@@ -68,7 +113,7 @@ class custom_agent:
             current_date = datetime.now().strftime('%Y-%m-%d %H:%M')
             params.write(f"training end: {current_date}\n")
 
-    ## Calculating GAEs
+    # Calculating GAEs
     def get_gaes(self, rewards, dones, values, next_values, gamma=0.99, lamda=0.95, normalize=True):
         deltas = [r + gamma * (1 - d) * nv - v for r, d,
                   nv, v in zip(rewards, dones, next_values, values)]
@@ -82,26 +127,25 @@ class custom_agent:
             gaes = (gaes - gaes.mean()) / (gaes.std() + 1e-8)
         return np.vstack(gaes), np.vstack(target)
 
-
     def replay(self, states, actions, rewards, predictions, dones, next_states):
-        ## reshape memory to appropriate shape for training
+        # reshape memory to appropriate shape for training
         states = np.vstack(states)
         next_states = np.vstack(next_states)
         actions = np.vstack(actions)
         predictions = np.vstack(predictions)
 
-        ## Get Critic network predictions
+        # Get Critic network predictions
         values = self.Critic.critic_predict(states)
         next_values = self.Critic.critic_predict(next_states)
 
-        ## Compute advantages
+        # Compute advantages
         advantages, target = self.get_gaes(
             rewards, dones, np.squeeze(values), np.squeeze(next_values))
 
-        ## stack everything to numpy array
+        # stack everything to numpy array
         y_true = np.hstack([advantages, predictions, actions])
 
-        ## training Actor and Critic networks
+        # training Actor and Critic networks
         a_loss = self.Actor.Actor.fit(
             states, y_true, epochs=self.epochs, verbose=0, shuffle=True, batch_size=self.batch_size)
         c_loss = self.Critic.Critic.fit(
@@ -117,13 +161,17 @@ class custom_agent:
 
     def act(self, state):
         # Use the network to predict the upcoming action
-        ## TODO: Adding Exploration/Exploitation
+        # TODO: Adding Exploration/Exploitation
         prediction = self.Actor.actor_predict(np.expand_dims(state, axis=0))[0]
-        
+
         action = np.random.choice(self.action_space, p=prediction)
+        
+        self.calc_next_space(action)
+        
+        
         return action, prediction
 
-    ## Saving the weights after finding a better configuration
+    # Saving the weights after finding a better configuration
     def save(self, name="Crypto_trader", score="", args=[]):
         # save keras model weights
         self.file_name = f"{self.log_name}/{score}_{name}"
@@ -141,7 +189,7 @@ class custom_agent:
                     atgumets += f", {arg}"
                 log.write(f"{current_time}{atgumets}\n")
 
-    ## Loading the weights for testing the model
+    # Loading the weights for testing the model
     def load(self, folder, name):
         # load keras model weights
         self.Actor.Actor.load_weights(os.path.join(folder, f"{name}_Actor.h5"))

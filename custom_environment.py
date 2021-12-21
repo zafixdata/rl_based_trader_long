@@ -3,7 +3,7 @@ from collections import deque
 import random
 import numpy as np
 import pandas as pd
-
+from  custom_agent import Acts, Spaces
 
 class custom_environment:
     # A custom Bitcoin trading environment
@@ -172,7 +172,7 @@ class custom_environment:
         return obs
 
     ## Execute one time step within the environment
-    def step(self, action):
+    def step(self, action):#, space):
         self.crypto_bought = 0
         self.crypto_sold = 0
         self.current_step += 1
@@ -183,10 +183,10 @@ class custom_environment:
         High = self.df.loc[self.current_step, 'high']  # for visualization
         Low = self.df.loc[self.current_step, 'low']  # for visualization
 
-        if action == 0:  # Hold
+        if action == Acts.remain_out_of_position:  # Hold
             pass
 
-        elif action == 1 and self.balance > self.initial_balance/100:
+        elif action == Acts.enter_long and self.balance > self.initial_balance/100:
             # Buy with 100% of current balance
             self.crypto_bought = self.balance / current_price
             self.balance -= self.crypto_bought * current_price
@@ -195,7 +195,7 @@ class custom_environment:
                                'total': self.crypto_bought, 'type': "buy", 'current_price': current_price})
             self.episode_orders += 1
 
-        elif action == 2 and self.crypto_held > 0:
+        elif action == Acts.exit_long and self.crypto_held > 0:
             # Sell 100% of current crypto held
             self.crypto_sold = self.crypto_held
             self.balance += self.crypto_sold * current_price
@@ -203,6 +203,9 @@ class custom_environment:
             self.trades.append({'date': date, 'high': High, 'low': Low,
                                'total': self.crypto_sold, 'type': "sell", 'current_price': current_price})
             self.episode_orders += 1
+            
+        elif action == Acts.remain_in_position:
+            pass
 
         self.prev_net_worth = self.net_worth
         self.net_worth = self.balance + self.crypto_held * current_price
@@ -211,7 +214,7 @@ class custom_environment:
             [self.balance, self.net_worth, self.crypto_bought, self.crypto_sold, self.crypto_held])
 
         ## Receive calculated reward
-        reward = self.get_reward()
+        reward = self.get_reward()#action, space)
 
         if self.net_worth <= self.initial_balance/2:
             done = True
@@ -223,10 +226,27 @@ class custom_environment:
         return obs, reward, done
 
     ## Calculating the reward
-    def get_reward(self):
-        self.punish_value += self.net_worth * 0.00001
+    def get_reward(self):#, action, space):
+        return 0
+        '''if self.episode_orders > 1 and self.episode_orders > self.prev_episode_orders:
+            # <--Just covers Sell-Buy and Buy-Sell, not others -->
+            self.prev_episode_orders = self.episode_orders
+            if space == Spaces.in_position:
+                if action == Acts.exit_long:
+                    reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
+                        self.trades[-1]['total']*self.trades[-1]['current_price']
+                elif action == Acts.remain_in_position:
+                    self.punish_value += self.net_worth * 0.00001
+            elif space == Spaces.out_of_position:
+                if action == Acts.enter_long:
+                    reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
+                        self.trades[-1]['total']*self.trades[-1]['current_price']
+                elif action == Acts.remain_out_of_position:
+                    self.punish_value += self.net_worth * 0.0001
+        
+        self.punish_value += self.net_worth * 0.00001'''
 
-        if self.episode_orders > 1 and self.episode_orders > self.prev_episode_orders:
+        '''if self.episode_orders > 1 and self.episode_orders > self.prev_episode_orders:
             # <--Just covers Sell-Buy and Buy-Sell, not others -->
             self.prev_episode_orders = self.episode_orders
             if self.trades[-1]['type'] == "buy" and self.trades[-2]['type'] == "sell":
@@ -245,7 +265,7 @@ class custom_environment:
                 self.trades[-1]["Reward"] = reward
                 return reward
         else:
-            return 0 - self.punish_value
+            return 0 - self.punish_value'''
 
     # render environment
     def render(self, visualize=False):
