@@ -4,6 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 from  custom_agent import Acts, Spaces
+from icecream import ic
 
 class custom_environment:
     # A custom Bitcoin trading environment
@@ -172,7 +173,7 @@ class custom_environment:
         return obs
 
     ## Execute one time step within the environment
-    def step(self, action):#, space):
+    def step(self, action, space):
         self.crypto_bought = 0
         self.crypto_sold = 0
         self.current_step += 1
@@ -214,7 +215,7 @@ class custom_environment:
             [self.balance, self.net_worth, self.crypto_bought, self.crypto_sold, self.crypto_held])
 
         ## Receive calculated reward
-        reward = self.get_reward()#action, space)
+        reward = self.get_reward(action, space)
 
         if self.net_worth <= self.initial_balance/2:
             done = True
@@ -226,46 +227,54 @@ class custom_environment:
         return obs, reward, done
 
     ## Calculating the reward
-    def get_reward(self):#, action, space):
-        return 0
-        '''if self.episode_orders > 1 and self.episode_orders > self.prev_episode_orders:
+    def get_reward(self, action, space):
+        # ic(action)
+        # ic(space)
+        self.punish_value += self.net_worth * 0.00001
+        if self.episode_orders > 1 and self.episode_orders > self.prev_episode_orders:
             # <--Just covers Sell-Buy and Buy-Sell, not others -->
             self.prev_episode_orders = self.episode_orders
             if space == Spaces.in_position:
                 if action == Acts.exit_long:
                     reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
                         self.trades[-1]['total']*self.trades[-1]['current_price']
+                    return reward
                 elif action == Acts.remain_in_position:
                     self.punish_value += self.net_worth * 0.00001
+                    return -self.punish_value
             elif space == Spaces.out_of_position:
                 if action == Acts.enter_long:
                     reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
                         self.trades[-1]['total']*self.trades[-1]['current_price']
+                    return reward
                 elif action == Acts.remain_out_of_position:
-                    self.punish_value += self.net_worth * 0.0001
+                    self.punish_value += self.net_worth * 0.00002
+                    return -self.punish_value
+            else:
+                raise Exception
         
-        self.punish_value += self.net_worth * 0.00001'''
+        # self.punish_value += self.net_worth * 0.00001
 
-        '''if self.episode_orders > 1 and self.episode_orders > self.prev_episode_orders:
-            # <--Just covers Sell-Buy and Buy-Sell, not others -->
-            self.prev_episode_orders = self.episode_orders
-            if self.trades[-1]['type'] == "buy" and self.trades[-2]['type'] == "sell":
-                reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
-                    self.trades[-1]['total']*self.trades[-1]['current_price']
+        # if self.episode_orders > 1 and self.episode_orders > self.prev_episode_orders:
+        #     # <--Just covers Sell-Buy and Buy-Sell, not others -->
+        #     self.prev_episode_orders = self.episode_orders
+        #     if self.trades[-1]['type'] == "buy" and self.trades[-2]['type'] == "sell":
+        #         reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
+        #             self.trades[-1]['total']*self.trades[-1]['current_price']
 
-                reward -= self.punish_value
-                self.punish_value = 0
-                self.trades[-1]["Reward"] = reward
-                return reward
-            elif self.trades[-1]['type'] == "sell" and self.trades[-2]['type'] == "buy":
-                reward = self.trades[-1]['total']*self.trades[-1]['current_price'] - \
-                    self.trades[-2]['total']*self.trades[-2]['current_price']
-                reward -= self.punish_value
-                self.punish_value = 0
-                self.trades[-1]["Reward"] = reward
-                return reward
+        #         reward -= self.punish_value
+        #         self.punish_value = 0
+        #         self.trades[-1]["Reward"] = reward
+        #         return reward
+        #     elif self.trades[-1]['type'] == "sell" and self.trades[-2]['type'] == "buy":
+        #         reward = self.trades[-1]['total']*self.trades[-1]['current_price'] - \
+        #             self.trades[-2]['total']*self.trades[-2]['current_price']
+        #         reward -= self.punish_value
+        #         self.punish_value = 0
+        #         self.trades[-1]["Reward"] = reward
+        #         return reward
         else:
-            return 0 - self.punish_value'''
+            return -self.punish_value
 
     # render environment
     def render(self, visualize=False):

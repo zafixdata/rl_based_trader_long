@@ -7,17 +7,21 @@ import os
 import numpy as np
 from icecream import ic
 import enum
+import tensorflow as tf
+from keras import layers
+
 
 class Spaces(enum.Enum):
     out_of_position = 0
     in_position = 1
-    
+    # Size of Possible State
+
+
 class Acts(enum.Enum):
     remain_out_of_position = 0
     enter_long = 1
     exit_long = 2
     remain_in_position = 3
-    
 
 
 class custom_agent:
@@ -25,13 +29,14 @@ class custom_agent:
     def __init__(self, lookback_window_size=50, learning_rate=0.00005, epochs=1, optimizer=Adam, batch_size=32, model="", state_size=10):
         self.lookback_window_size = lookback_window_size
         self.model = model  # Currently, only one model is available (CNN)
-
+        self.space = Spaces.out_of_position
+        self.next_space = "Mamad"  
         # Action space from 0 to 3
         self.action_space = np.array([Acts.remain_out_of_position,
                                       Acts.enter_long,
                                       Acts.exit_long,
                                       Acts.remain_in_position]
-                                    )
+                                     )
 
         # folder to save models
         self.log_name = datetime.now().strftime("%Y_%m_%d_%H_%M")+"_Crypto_trader"
@@ -40,6 +45,7 @@ class custom_agent:
         # State size contains Market+Orders history for the last lookback_window_size steps
         # 10 standard information +9 indicators
         self.state_size = (lookback_window_size, state_size)
+        self.space_size = len(Acts)
 
         # Neural Networks part bellow
         self.learning_rate = learning_rate
@@ -47,39 +53,39 @@ class custom_agent:
         self.optimizer = optimizer
         self.batch_size = batch_size
 
-        self.space = Spaces.out_of_position
-        self.next_space = None
+
 
         # Create shared Actor-Critic network model
         self.Actor = self.Critic = Shared_Model(
-            input_shape=self.state_size, action_space=self.action_space.shape[0], learning_rate=self.learning_rate, optimizer=self.optimizer, State_Function=self.mask_func, model=self.model)
+            input_shape=self.state_size, valid_act=self.space_size, action_space=self.action_space.shape[
+                0], learning_rate=self.learning_rate,
+            optimizer=self.optimizer, model=self.model)
 
-    def mask_func(self, action_space_numbers):
-        minus_inf = -10000
+    def get_onehot_mask(self):
         if self.space == Spaces.out_of_position:
-            action_space_numbers[2] = minus_inf
-            action_space_numbers[3] = minus_inf
-            return action_space_numbers 
+            return [1, 1, 0, 0]
         elif self.space == Spaces.in_position:
-            action_space_numbers[0] = minus_inf
-            action_space_numbers[1] = minus_inf
-            return action_space_numbers 
+            return [0, 0, 1, 1]
         else:
-            print('ERROR!')
+            raise Exception('ERROR!')
 
     # create tensorboard writer
-    
+
     def calc_next_space(self, action):
         if self.space == Spaces.out_of_position:
             if action == Acts.enter_long:
                 self.next_space = Spaces.in_position
             elif action == Acts.remain_out_of_position:
                 self.next_space = Spaces.out_of_position
+            else:
+                raise Exception('ERROR!')
         elif self.space == Spaces.in_position:
             if action == Acts.exit_long:
                 self.next_space = Spaces.out_of_position
             elif action == Acts.remain_in_position:
                 self.next_space = Spaces.in_position
+            else:
+                raise Exception('ERROR!')
 
     def create_writer(self, initial_balance, normalize_value, train_episodes):
         self.replay_count = 0
@@ -127,9 +133,10 @@ class custom_agent:
             gaes = (gaes - gaes.mean()) / (gaes.std() + 1e-8)
         return np.vstack(gaes), np.vstack(target)
 
-    def replay(self, states, actions, rewards, predictions, dones, next_states):
+    def replay(self, states, spaces, actions, rewards, predictions, dones, next_states):
         # reshape memory to appropriate shape for training
         states = np.vstack(states)
+        spaces = np.vstack(spaces)
         next_states = np.vstack(next_states)
         actions = np.vstack(actions)
         predictions = np.vstack(predictions)
@@ -147,7 +154,8 @@ class custom_agent:
 
         # training Actor and Critic networks
         a_loss = self.Actor.Actor.fit(
-            states, y_true, epochs=self.epochs, verbose=0, shuffle=True, batch_size=self.batch_size)
+            [states, spaces], y_true, epochs=self.epochs, verbose=0, shuffle=True, batch_size=self.batch_size)
+
         c_loss = self.Critic.Critic.fit(
             states, target, epochs=self.epochs, verbose=0, shuffle=True, batch_size=self.batch_size)
 
@@ -162,13 +170,13 @@ class custom_agent:
     def act(self, state):
         # Use the network to predict the upcoming action
         # TODO: Adding Exploration/Exploitation
-        prediction = self.Actor.actor_predict(np.expand_dims(state, axis=0))[0]
+        prediction = self.Actor.actor_predict(np.expand_dims(state, axis=0),
+                                              np.expand_dims(self.get_onehot_mask(), axis=0))[0]
 
         action = np.random.choice(self.action_space, p=prediction)
-        
+
         self.calc_next_space(action)
-        
-        
+
         return action, prediction
 
     # Saving the weights after finding a better configuration
