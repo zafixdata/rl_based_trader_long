@@ -34,8 +34,27 @@ from custom_agent import custom_agent
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-
+pltfile = open("pltfile.csv", "w")
 # This part is used to start training
+
+
+plt.ion()
+plt.show()
+plt.grid()
+p1 = []
+p2 = []
+
+
+def plt_value(x, y):
+    p1.append(x)
+    p2.append(y)
+
+    plt.plot(p1, c="black")
+    plt.plot(p2, c="red")
+
+    plt.pause(0.01)
+
+
 def train_agent(env, agent: custom_agent, visualize=False, train_episodes=50, training_batch_size=500):
     agent.create_writer(env.initial_balance, env.normalize_value,
                         train_episodes)  # create TensorBoard writer
@@ -78,8 +97,17 @@ def train_agent(env, agent: custom_agent, visualize=False, train_episodes=50, tr
         agent.writer.add_scalar('Data/episode_orders',
                                 env.episode_orders, episode)
 
-        print("episode: {:<5} net worth {:<7.2f} average: {:<7.2f} orders: {}".format(
-            episode, env.net_worth, average, env.episode_orders))
+        # print("episode: {:<5} net worth {:<7.2f} average: {:<7.2f} orders: {}".format(
+        #     episode, env.net_worth, average, env.episode_orders),file=pltfile)
+        # pltfile.flush()
+        print("episode: {:<5} net worth {:<7.2f} average: {:<7.2f} orders: {} action_types: {}".format(
+            episode, env.net_worth, average, env.episode_orders,
+
+            {key: round(env.episode_actions[key]*100)
+             for key in env.episode_actions}
+        ))
+        plt_value(env.net_worth,average)
+
         if episode > len(total_average):
             if best_average < average:
                 best_average = average
@@ -94,17 +122,17 @@ def train_agent(env, agent: custom_agent, visualize=False, train_episodes=50, tr
 if __name__ == "__main__":
 
     # Importing Data with 1H period
-    df = pd.read_csv(
-        './Binance_BTCUSDT_1h_Base_MACD_PSAR_ATR_BB_ADX_RSI_ICHI_KC_Williams_Cnst_Interpolated.csv')  # [::-1]
+    # df = pd.read_csv('./Binance_BTCUSDT_1h_Base_MACD_PSAR_ATR_BB_ADX_RSI_ICHI_KC_Williams_Cnst_Interpolated.csv')  # [::-1]
+    df = pd.read_csv('./new_data.csv')
     lookback_window_size = 12
     test_window = 24 * 30    # 30 days
 
     # Training Section:
     train_df = df[:-test_window-lookback_window_size]
     agent = custom_agent(lookback_window_size=lookback_window_size,
-                         learning_rate=0.0001, epochs=5, optimizer=Adam, batch_size=24, model="Dense", state_size=10+3)
+                         learning_rate=0.0001, epochs=5, optimizer=Adam, batch_size=24, model="Dense", state_size=10+7)
 
     train_env = custom_environment(
         train_df, lookback_window_size=lookback_window_size)
     train_agent(train_env, agent, visualize=False,
-                train_episodes=3000, training_batch_size=500)
+                train_episodes=100000, training_batch_size=500)

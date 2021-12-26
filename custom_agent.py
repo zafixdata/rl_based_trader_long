@@ -63,9 +63,9 @@ class custom_agent:
 
     def get_onehot_mask(self):
         if self.space == Spaces.out_of_position:
-            return [1, 1, 0, 0]
+            return [1, 1, 0, 0] #remain_out_of_position, enter_long
         elif self.space == Spaces.in_position:
-            return [0, 0, 1, 1]
+            return [0, 0, 1, 1] #exit_long, remain_in_position
         else:
             raise Exception('ERROR!')
 
