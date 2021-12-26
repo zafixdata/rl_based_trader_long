@@ -6,7 +6,7 @@ import pandas as pd
 from custom_agent import Acts, Spaces
 from icecream import ic
 
-
+file_id = open('rewards.txt', 'w')
 class custom_environment:
     # A custom Bitcoin trading environment
     def __init__(self, df, initial_balance=1000, lookback_window_size=50, Render_range=100, Show_reward=False, Show_indicators=False, normalize_value=40000):
@@ -273,31 +273,49 @@ class custom_environment:
             if space == Spaces.in_position:
                 if action == Acts.exit_long:
                     self.punish_value = 0
-                    reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
-                        self.trades[-1]['total'] * \
-                        self.trades[-1]['current_price']
+                    # reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
+                    #     self.trades[-1]['total'] * \
+                    #     self.trades[-1]['current_price']
+                    reward = self.net_worth*((self.trades[-1]['current_price']/ self.trades[-2]['current_price'])-1)
+                    file_id.write(f'space={space}, action={action}, reward={reward:.4f}\n')
+                    file_id.flush()
+                    # print('mamad',file=file_id)
+                    # file_id.close()
                     # print(f'reward for exit_long {reward}')
                     return reward
                 elif action == Acts.remain_in_position:
+                    C0 = self.df.loc[self.current_step, 'open']
+                    C_1 = self.df.loc[self.current_step-1, 'open']
+                    reward = C0/C_1-1
                     self.punish_value += self.net_worth * 0.00001
                     # print(
                         # f'punish for remain_in_position {-self.punish_value}')
-                    return -self.punish_value
+                    file_id.write(f'space={space}, action={action}, reward={reward:.4f}\n')
+                    file_id.flush()
+                    # file_id.close()
+                    return reward#-self.punish_value
             elif space == Spaces.out_of_position:
                 if action == Acts.enter_long:
                     self.punish_value = 0
-                    reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
-                        self.trades[-1]['total'] * \
-                        self.trades[-1]['current_price']
+                    # reward = self.trades[-2]['total']*self.trades[-2]['current_price'] - \
+                    #     self.trades[-1]['total'] * \
+                    #     self.trades[-1]['current_price']
+                    reward = 0
+                    file_id.write(f'space={space}, action={action}, reward={reward:.4f}\n')
+                    file_id.flush()
+                    # file_id.close()
                     # print(f'reward for enter_long {reward}')
                     return reward
                 elif action == Acts.remain_out_of_position:
                     C0 = self.df.loc[self.current_step, 'open']
                     C_1 = self.df.loc[self.current_step-1, 'open']
                     reward = C_1/C0-1
-                    self.punish_value += self.net_worth * 0.00004
+                    self.punish_value += self.net_worth * 0.00002
                     # print(
                     #     f'punish for remain_out_of_position {-self.punish_value}')
+                    file_id.write(f'space={space}, action={action}, reward={reward-self.punish_value:.4f}, reward1={reward:.4f}, reward2={-self.punish_value:.4f}\n')
+                    file_id.flush()
+                    # file_id.close()
                     return reward-self.punish_value
             else:
                 raise Exception

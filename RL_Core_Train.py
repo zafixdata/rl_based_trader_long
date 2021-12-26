@@ -38,9 +38,9 @@ pltfile = open("pltfile.csv", "w")
 # This part is used to start training
 
 
-plt.ion()
-plt.show()
-plt.grid()
+# plt.ion()
+# plt.show()
+# plt.grid()
 p1 = []
 p2 = []
 
@@ -106,15 +106,15 @@ def train_agent(env, agent: custom_agent, visualize=False, train_episodes=50, tr
             {key: round(env.episode_actions[key]*100)
              for key in env.episode_actions}
         ))
-        plt_value(env.net_worth,average)
+        # plt_value(env.net_worth,average)
 
-        if episode > len(total_average):
-            if best_average < average:
-                best_average = average
-                print("Saving model")
-                agent.save(score="{:.2f}".format(best_average), args=[
-                           episode, average, env.episode_orders, a_loss, c_loss])
-            agent.save()
+        if episode % 20 == 0:
+            #if best_average < average:
+            #best_average = average
+            print("Saving model")
+            agent.save(score="{:.2f}".format(episode), args=[
+                        episode, average, env.episode_orders, a_loss, c_loss])
+            #agent.save()
 
     agent.end_training_log()
 

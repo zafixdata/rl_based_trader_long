@@ -49,7 +49,7 @@ if __name__ == "__main__":
     #df = pd.read_csv('./Binance_BTCUSDT_1h_Base_MACD_PSAR_ATR_BB_ADX_RSI_ICHI_KC_Williams_Cnst_Interpolated.csv')  # [::-1]
 
     lookback_window_size = 12
-    test_window = 24 * 25    # 30 days
+    test_window = 24 * 29    # 30 days
 
     agent = custom_agent(lookback_window_size=lookback_window_size,
                         learning_rate=0.0001, epochs=5, optimizer=Adam, batch_size=24
@@ -61,4 +61,4 @@ if __name__ == "__main__":
     test_env = custom_environment(test_df, lookback_window_size=lookback_window_size,
                          Show_reward=True, Show_indicators=True)
     test_agent(test_env, agent, visualize=True, test_episodes=100,
-                folder="2021_12_25_20_10_Crypto_trader", name="1326.93_Crypto_trader", comment="")
+                folder="2021_12_26_19_22_Crypto_trader", name="120.00_Crypto_trader", comment="")
