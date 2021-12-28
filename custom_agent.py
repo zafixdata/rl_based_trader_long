@@ -1,5 +1,5 @@
 from datetime import datetime
-from tensorflow.keras.optimizers import Adam, RMSprop
+from tensorflow.keras.optimizers import Adam, RMSprop, SGD
 from model import Actor_Model, Critic_Model, Shared_Model
 from tensorboardX import SummaryWriter
 import copy
@@ -9,6 +9,7 @@ from icecream import ic
 import enum
 import tensorflow as tf
 from keras import layers
+import matplotlib.pyplot as plt 
 
 
 class Spaces(enum.Enum):
@@ -52,6 +53,12 @@ class custom_agent:
         self.epochs = epochs
         self.optimizer = optimizer
         self.batch_size = batch_size
+        #self.fig = plt.figure()
+        #self.ax1 = plt.subplot2grid((6,1), (0,0), rowspan=5, colspan=1)
+        
+        # Create bottom subplot for volume which shares its x-axis
+        #self.ax2 = plt.subplot2grid((6,1), (3,0), rowspan=1, colspan=1, sharex=self.ax1)
+        
 
 
 
@@ -142,7 +149,7 @@ class custom_agent:
         predictions = np.vstack(predictions)
 
         # Get Critic network predictions
-        values = self.Critic.critic_predict(states)
+        values = self.Critic.critic_predict(states,self.next_space)
         next_values = self.Critic.critic_predict(next_states)
 
         # Compute advantages
@@ -155,10 +162,25 @@ class custom_agent:
         # training Actor and Critic networks
         a_loss = self.Actor.Actor.fit(
             [states, spaces], y_true, epochs=self.epochs, verbose=0, shuffle=True, batch_size=self.batch_size)
+        
+        #self.ax1.plot(a_loss.history['loss'])
+        #plt.plot(a_loss.history['loss'])
+        #plt.show()
+        plt.subplot(2, 1, 1)
+        plt.plot(a_loss.history['loss'])
 
         c_loss = self.Critic.Critic.fit(
-            states, target, epochs=self.epochs, verbose=0, shuffle=True, batch_size=self.batch_size)
-
+            [states, spaces], target, epochs=self.epochs, verbose=0, shuffle=True, batch_size=self.batch_size)
+        
+        #plt.figure()
+        #plt.plot(a_loss.history['loss'])
+        #plt.show()
+        #self.ax2.plot(c_loss.history['loss'])
+        plt.subplot(2, 1, 2)
+        plt.plot(c_loss.history['loss'])
+        
+        plt.show()
+        
         self.writer.add_scalar('Data/actor_loss_per_replay',
                                np.sum(a_loss.history['loss']), self.replay_count)
         self.writer.add_scalar('Data/critic_loss_per_replay',

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from custom_agent import Acts, Spaces
 from icecream import ic
+from Configs import *
 
 file_id = open('rewards.txt', 'w')
 class custom_environment:
@@ -211,7 +212,7 @@ class custom_environment:
         Low = self.df.loc[self.current_step, 'low']  # for visualization
 
         if action == Acts.remain_out_of_position:  # Hold
-            self.episode_actions['remain_out_of_position'] += 1/500
+            self.episode_actions['remain_out_of_position'] += 1/training_batch_size
             self.episode_actions_number += 1
             pass
 
@@ -222,7 +223,7 @@ class custom_environment:
             self.crypto_held += self.crypto_bought
             self.trades.append({'date': date, 'high': High, 'low': Low,
                                'total': self.crypto_bought, 'type': "buy", 'current_price': current_price})
-            self.episode_actions['enter_long'] += 1/500
+            self.episode_actions['enter_long'] += 1/training_batch_size
             self.episode_actions_number += 1
             self.episode_orders += 1
 
@@ -233,12 +234,12 @@ class custom_environment:
             self.crypto_held -= self.crypto_sold
             self.trades.append({'date': date, 'high': High, 'low': Low,
                                'total': self.crypto_sold, 'type': "sell", 'current_price': current_price})
-            self.episode_actions['exit_long'] += 1/500
+            self.episode_actions['exit_long'] += 1/training_batch_size
             self.episode_actions_number += 1
             self.episode_orders += 1
 
         elif action == Acts.remain_in_position:
-            self.episode_actions['remain_in_position'] += 1/500
+            self.episode_actions['remain_in_position'] += 1/training_batch_size
             self.episode_actions_number += 1
             pass
 
@@ -259,6 +260,9 @@ class custom_environment:
         obs = self._next_observation()
 
         return obs, reward, done
+    
+    def get_total_reward(self):
+        return self.net_worth/self.initial_balance - 1
 
     # Calculating the reward
     def get_reward(self, action, space):

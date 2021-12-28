@@ -17,8 +17,8 @@ from indicators import AddIndicators
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-
-from tensorflow.keras.optimizers import Adam, RMSprop
+from Configs import *
+from tensorflow.keras.optimizers import Adam, RMSprop, SGD
 
 from collections import deque
 import random
@@ -78,14 +78,15 @@ def train_agent(env, agent: custom_agent, visualize=False, train_episodes=50, tr
             action_onehot[action.value] = 1
             # ic(reward)
             actions.append(action_onehot)
-            rewards.append(reward)
+            #rewards.append(reward)
             # ic(rewards)
             # ic(action)
             dones.append(done)
             predictions.append(prediction)
             state = next_state
             agent.space = agent.next_space
-
+        reward_total = env.get_total_reward()
+        rewards = [reward_total/training_batch_size for i in range(training_batch_size)]
         # ic(rewards)
         a_loss, c_loss = agent.replay(
             states, spaces, actions, rewards, predictions, dones, next_states)
@@ -130,9 +131,9 @@ if __name__ == "__main__":
     # Training Section:
     train_df = df[:-test_window-lookback_window_size]
     agent = custom_agent(lookback_window_size=lookback_window_size,
-                         learning_rate=0.0001, epochs=5, optimizer=Adam, batch_size=24, model="Dense", state_size=10+7)
+                         learning_rate=0.001, epochs=50, optimizer=SGD, batch_size=32, model="Dense", state_size=10+7)
 
     train_env = custom_environment(
         train_df, lookback_window_size=lookback_window_size)
     train_agent(train_env, agent, visualize=False,
-                train_episodes=100000, training_batch_size=500)
+                train_episodes=100000, training_batch_size=training_batch_size)

@@ -88,7 +88,7 @@ class Shared_Model:
         ###
 
         value = Dense(1, activation=None)(V)
-        self.Critic = Model(inputs=X_input, outputs=value)  # value --> X
+        self.Critic = Model(inputs=[X_input,valid_input], outputs=value)  # value --> X
         self.Critic.compile(loss=self.critic_PPO2_loss,
                             optimizer=optimizer(learning_rate=learning_rate))
 
@@ -180,8 +180,8 @@ class Shared_Model:
         value_loss = K.mean((y_true - y_pred) ** 2)  # standard PPO loss
         return value_loss
 
-    def critic_predict(self, state):
-        return self.Critic.predict([state, np.zeros((state.shape[0], 1))])
+    def critic_predict(self, state,current_valid_acts_hot):
+        return self.Critic.predict([state,current_valid_acts_hot, np.zeros((state.shape[0], 1))])
 
 
 class Actor_Model:
